@@ -1,12 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
 //https://msdn.microsoft.com/en-us/library/mt693036.aspx
+//이 페이지의 방법은 GetHashCode비교를 파일명과 크기만으로 하기 때문에 비교는 MD5를 이용.
+
 namespace DiffFolders
 {
     public enum RESULT
@@ -17,19 +16,17 @@ namespace DiffFolders
         Exist2Only,
     }
 
-    class FileCompare : IEqualityComparer<FileInfo>
+    class FileCompare : Singleton<FileCompare>, IEqualityComparer<FileInfo>
 	{
-        private MD5 _md5_1st;
-        private MD5 _md5_2nd;
+        private MD5 _md5_1st = MD5.Create();
+        private MD5 _md5_2nd = MD5.Create();
         private string _hash1;
         private string _hash2;
         FileStream _stream1;
         FileStream _stream2;
-
         public FileCompare()
         {
-            _md5_1st = MD5.Create();
-            _md5_2nd = MD5.Create();
+
         }
 
         public bool Equals(FileInfo f1, FileInfo f2)
@@ -44,16 +41,30 @@ namespace DiffFolders
         // reference identity, it is possible that two or more objects will produce the same  
         // hash code.  
 
-        public int GetHashCode(System.IO.FileInfo fi)
+        public int GetHashCode(FileInfo fi)
         {
-            string s;
-            using (FileStream stream = File.OpenRead(fi.FullName))
-            {
-                s = _md5_1st.ComputeHash(stream).ToString();
-            }
-            return s.GetHashCode();
+            return GetMD5(fi.FullName).GetHashCode();
         }
 
+        public string GetMD5(string path)
+        {
+            string strMD5;
+            using (FileStream stream = File.OpenRead(path))
+            {
+                strMD5 = GetHex(_md5_1st.ComputeHash(stream), false);
+            }
+            return strMD5;
+        }
+
+        public string GetHex(byte[] bytes, bool upperCase)
+        {
+            StringBuilder result = new StringBuilder(bytes.Length * 2);
+
+            for (int i = 0; i < bytes.Length; i++)
+                result.Append(bytes[i].ToString(upperCase ? "X2" : "x2"));
+
+            return result.ToString();
+        }
 
         public RESULT MD5Compare(FileInfo file1, FileInfo file2)
         {
